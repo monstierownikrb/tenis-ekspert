@@ -56,6 +56,9 @@ class Obsluga(BaseHTTPRequestHandler):
             wejscie = dane["input"] if isinstance(dane["input"], list) else [dane["input"]]
             self._json(200, {"data": [{"index": i, "embedding": osadz(t)} for i, t in enumerate(wejscie)]})
         elif self.path.endswith("/chat/completions"):
+            if "reasoning_effort" in dane:
+                self._json(400, {"error": {"message": "Unknown name reasoning_effort"}})
+                return
             if dane.get("model") == "model-przeciazony":
                 self._json(503, {"error": {"code": 503, "message": "This model is currently experiencing high demand."}})
                 return

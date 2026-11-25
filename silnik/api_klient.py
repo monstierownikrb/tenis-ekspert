@@ -29,8 +29,14 @@ class _ModelNiedostepny(BladOllamy):
 
 class KlientAPI:
     def __init__(self, url: str, klucz: str, model_llm: str, model_embed: str, temperatura: float = 0.2,
-                 maks_tokenow: int = 1024, limit_czasu: float = 120.0, modele_zapasowe: list[str] | None = None):
+                 maks_tokenow: int = 1024, limit_czasu: float = 120.0, modele_zapasowe: list[str] | None = None,
+                 wysilek_myslenia: str | None = None):
         self.host = url.rstrip("/")
+        # Modele „myślące” (Gemini) najpierw długo rozważają odpowiedź. Przy RAG odpowiedź jest w kontekście,
+        # więc niski wysiłek myślenia skraca czas odpowiedzi z kilkudziesięciu do kilku sekund.
+        if wysilek_myslenia is None:
+            wysilek_myslenia = "low" if "generativelanguage.googleapis.com" in self.host else ""
+        self.wysilek_myslenia = wysilek_myslenia
         # MODEL_LLM może zawierać kilka modeli po przecinku: pierwszy główny, kolejne zapasowe
         modele = [m.strip() for m in model_llm.split(",") if m.strip()]
         self.model_llm = modele[0] if modele else model_llm
@@ -111,17 +117,22 @@ class KlientAPI:
             kolejka.insert(0, self._dzialajacy[0])  # nie czekamy co pytanie na przeciążony model główny
         ostatni: BladOllamy | None = None
         for nr, nazwa in enumerate(kolejka):
+            start = time.time()
             try:
                 yield from self._czat_jeden(wiadomosci, nazwa, proby=2 if nr < len(kolejka) - 1 else 3)
                 self._dzialajacy = (nazwa, time.time() + 600) if nazwa != glowny else None
+                print(f"[API] odpowiedział {nazwa} w {time.time() - start:.1f} s", flush=True)  # logi hostingu
                 return
             except _ModelNiedostepny as e:
+                print(f"[API] {nazwa} niedostępny po {time.time() - start:.1f} s: {e}", flush=True)
                 ostatni = e
         raise BladOllamy(str(ostatni)) if ostatni else BladOllamy("Brak dostępnego modelu.")
 
     def _czat_jeden(self, wiadomosci: list[dict], model: str, proby: int) -> Iterator[str]:
         dane = {"model": model, "messages": wiadomosci, "temperature": self.temperatura,
                 "max_tokens": self.maks_tokenow, "stream": True}
+        if self.wysilek_myslenia:
+            dane["reasoning_effort"] = self.wysilek_myslenia
         for proba in range(proby):
             try:
                 with self._http.stream("POST", f"{self.host}/chat/completions", json=dane) as odp:
@@ -130,6 +141,10 @@ class KlientAPI:
                         if proba == proby - 1 or odp.status_code == 404:
                             raise _ModelNiedostepny(str(self._blad(None, odp)))
                         time.sleep(2.0 * (proba + 1))
+                        continue
+                    if odp.status_code == 400 and "reasoning_effort" in dane:
+                        odp.read()  # model nie obsługuje ustawienia myślenia – próbujemy bez niego
+                        dane.pop("reasoning_effort")
                         continue
                     if odp.status_code >= 400:
                         odp.read()

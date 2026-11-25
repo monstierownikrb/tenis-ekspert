@@ -25,7 +25,8 @@ def utworz_klienta(cfg) -> KlientOllama | KlientAPI:
     """Ollama na tym komputerze albo model w chmurze przez API (LLM_DOSTAWCA="api") – reszta kodu jest wspólna."""
     if getattr(cfg, "LLM_DOSTAWCA", "ollama") == "api":
         return KlientAPI(cfg.API_URL, cfg.API_KLUCZ, cfg.MODEL_LLM, cfg.MODEL_EMBED, cfg.TEMPERATURA,
-                         maks_tokenow=getattr(cfg, "API_MAKS_TOKENOW", 4096))
+                         maks_tokenow=getattr(cfg, "API_MAKS_TOKENOW", 4096),
+                         wysilek_myslenia=getattr(cfg, "API_WYSILEK", "") or None)
     return KlientOllama(cfg.OLLAMA_HOST, cfg.MODEL_LLM, cfg.MODEL_EMBED, cfg.TEMPERATURA, cfg.NUM_CTX)
 
 

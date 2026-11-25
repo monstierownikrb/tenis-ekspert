@@ -39,6 +39,8 @@ API_URL = _env("API_URL", "https://api.mistral.ai/v1")
 API_KLUCZ = _env("API_KLUCZ", "")
 # Limit długości odpowiedzi modelu z API. Spory zapas, bo modele „myślące” (np. Gemini) liczą do niego też myślenie.
 API_MAKS_TOKENOW = _env("API_MAKS_TOKENOW", 4096)
+# Wysiłek myślenia modeli „myślących” (low/medium/high). Puste = ustawienie domyślne (dla Gemini: low).
+API_WYSILEK = _env("API_WYSILEK", "")
 
 # --- Ollama -------------------------------------------------------------------------------
 OLLAMA_HOST = _env("OLLAMA_HOST", "http://localhost:11434")
