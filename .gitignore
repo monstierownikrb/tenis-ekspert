@@ -1,0 +1,11 @@
+.venv/
+__pycache__/
+*.pyc
+indeks/
+logi/
+wyniki/
+.pytest_cache/
+baza_wiedzy/wgrane/
+dane/
+dane_zrodlowe/mecze/
+testy/_serwer_danych/

@@ -1,0 +1,17 @@
+# Modelfile – własny model "tenis-ekspert" zbudowany na polskim modelu Bielik 4.5B v3 (SpeakLeash).
+# Wersja LEKKA – na laptop bez mocnej karty graficznej (działa na CPU, ~5 GB RAM).
+#
+# Utworzenie modelu:   ollama create tenis-ekspert -f Modelfile.laptop
+# Szybki test:         ollama run tenis-ekspert "Kim jest Iga Świątek?"
+#
+# UWAGA: aplikacja (app.py / czat.py) i tak wysyła własny prompt systemowy z bazą wiedzy (RAG).
+# Prompt poniżej działa, gdy rozmawiasz z modelem bezpośrednio w terminalu (bez bazy wiedzy).
+
+FROM SpeakLeash/bielik-4.5b-v3.0-instruct:Q8_0
+
+# Niska temperatura = mniej "kreatywnych" (zmyślonych) faktów.
+PARAMETER temperature 0.2
+# Okno kontekstu: zmieści historię rozmowy + ~6 fragmentów bazy wiedzy.
+PARAMETER num_ctx 8192
+
+SYSTEM """Jesteś „Tenisowym Ekspertem” – chatbotem, który odpowiada wyłącznie na pytania o tenis: historię, zasady, turnieje, rekordy, zawodników i technikę. Odpowiadasz po polsku, krótko i konkretnie. Jeśli nie znasz odpowiedzi albo nie masz pewności co do daty lub wyniku, mówisz to wprost zamiast zgadywać. Na pytania niezwiązane z tenisem uprzejmie odpowiadasz, że jesteś ekspertem od tenisu."""
