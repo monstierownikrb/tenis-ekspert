@@ -24,7 +24,8 @@ for _strumien in (sys.stdout, sys.stderr):
 def utworz_klienta(cfg) -> KlientOllama | KlientAPI:
     """Ollama na tym komputerze albo model w chmurze przez API (LLM_DOSTAWCA="api") – reszta kodu jest wspólna."""
     if getattr(cfg, "LLM_DOSTAWCA", "ollama") == "api":
-        return KlientAPI(cfg.API_URL, cfg.API_KLUCZ, cfg.MODEL_LLM, cfg.MODEL_EMBED, cfg.TEMPERATURA)
+        return KlientAPI(cfg.API_URL, cfg.API_KLUCZ, cfg.MODEL_LLM, cfg.MODEL_EMBED, cfg.TEMPERATURA,
+                         maks_tokenow=getattr(cfg, "API_MAKS_TOKENOW", 4096))
     return KlientOllama(cfg.OLLAMA_HOST, cfg.MODEL_LLM, cfg.MODEL_EMBED, cfg.TEMPERATURA, cfg.NUM_CTX)
 
 

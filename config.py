@@ -37,6 +37,8 @@ LLM_DOSTAWCA = _env("LLM_DOSTAWCA", "ollama").strip().lower()
 W_CHMURZE = LLM_DOSTAWCA == "api"
 API_URL = _env("API_URL", "https://api.mistral.ai/v1")
 API_KLUCZ = _env("API_KLUCZ", "")
+# Limit długości odpowiedzi modelu z API. Spory zapas, bo modele „myślące” (np. Gemini) liczą do niego też myślenie.
+API_MAKS_TOKENOW = _env("API_MAKS_TOKENOW", 4096)
 
 # --- Ollama -------------------------------------------------------------------------------
 OLLAMA_HOST = _env("OLLAMA_HOST", "http://localhost:11434")

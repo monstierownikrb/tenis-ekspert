@@ -191,8 +191,20 @@ Reszta – baza wiedzy, wyszukiwanie hybrydowe, baza 361 tys. meczów, uczenie s
 Uwagi: darmowa aplikacja zasypia po kilku godzinach bez ruchu – przed prezentacją otwórz link kilka minut wcześniej.
 Dysk serwera jest tymczasowy: fakty zatwierdzone w aplikacji znikną po restarcie, dlatego autor ma przycisk
 „⬇️ Pobierz nauczone fakty” – plik `nauczone.md` wrzuć do repozytorium w `baza_wiedzy/nauczone/`.
-Inny dostawca = inne `API_URL` i nazwy modeli, np. Bielik przez PLGrid/Cyfronet (`https://llmlab.plgrid.pl/api/v1`,
-wymaga konta PLGrid) – wtedy `MODEL_EMBED = ""` oznacza wyszukiwanie tylko po słowach (BM25).
+Inny dostawca = inne `API_URL` i nazwy modeli. **Google Gemini** (klucz z https://aistudio.google.com/apikey,
+wystarczy konto Google):
+```toml
+LLM_DOSTAWCA = "api"
+API_URL = "https://generativelanguage.googleapis.com/v1beta/openai"
+API_KLUCZ = "tu-wklej-klucz"
+MODEL_LLM = "gemini-3.8-flash"
+MODEL_EMBED = ""
+TENIS_HASLO = "haslo-autora"
+```
+`MODEL_EMBED = ""` oznacza wyszukiwanie tylko po słowach (BM25) – na 38 pytaniach testowych znajduje odpowiedź
+w 38 przypadkach, a strona startuje od razu (darmowy limit embeddingów Gemini to ok. 30 tys. tokenów na minutę,
+więc liczenie całej bazy trwałoby kilka minut przy każdym uruchomieniu serwera). Tak samo można podłączyć np.
+Bielika przez PLGrid/Cyfronet (`https://llmlab.plgrid.pl/api/v1`, wymaga konta PLGrid).
 
 ## 7. Jak bot się uczy (wymaganie „chatbot uczący się”)
 
