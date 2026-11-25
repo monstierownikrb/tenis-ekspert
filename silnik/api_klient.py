@@ -18,12 +18,26 @@ import httpx
 
 from .ollama_klient import BladOllamy
 
+# Zapasowe modele, gdy główny jest przeciążony (HTTP 503) albo wyczerpał darmowy limit (429).
+# Darmowe plany Gemini potrafią chwilowo odrzucać zapytania do najnowszego modelu przy dużym ruchu.
+ZAPASOWE_GEMINI = ["gemini-3.1-flash-lite", "gemini-3-flash-preview", "gemini-2.5-flash"]
+
+
+class _ModelNiedostepny(BladOllamy):
+    """Model chwilowo niedostępny (przeciążenie, limit, brak modelu) – można spróbować innego modelu."""
+
 
 class KlientAPI:
     def __init__(self, url: str, klucz: str, model_llm: str, model_embed: str, temperatura: float = 0.2,
-                 maks_tokenow: int = 1024, limit_czasu: float = 120.0):
+                 maks_tokenow: int = 1024, limit_czasu: float = 120.0, modele_zapasowe: list[str] | None = None):
         self.host = url.rstrip("/")
-        self.model_llm = model_llm
+        # MODEL_LLM może zawierać kilka modeli po przecinku: pierwszy główny, kolejne zapasowe
+        modele = [m.strip() for m in model_llm.split(",") if m.strip()]
+        self.model_llm = modele[0] if modele else model_llm
+        if modele_zapasowe is None:
+            modele_zapasowe = ZAPASOWE_GEMINI if "generativelanguage.googleapis.com" in self.host else []
+        self.modele_zapasowe = [m for m in modele[1:] + list(modele_zapasowe) if m != self.model_llm]
+        self._dzialajacy: tuple[str, float] | None = None  # zapasowy model, który ostatnio odpowiedział (na 10 min)
         self.model_embed = model_embed
         self.temperatura = temperatura
         self.maks_tokenow = maks_tokenow
@@ -44,6 +58,8 @@ class KlientAPI:
                 return BladOllamy("Klucz API jest nieprawidłowy albo wygasł – sprawdź API_KLUCZ w ustawieniach (Secrets).")
             if kod == 429:
                 return BladOllamy("Darmowy limit zapytań do modelu jest chwilowo wyczerpany – spróbuj za chwilę.")
+            if kod in (500, 502, 503, 504):
+                return BladOllamy("Model w chmurze jest chwilowo przeciążony (darmowy plan) – spróbuj ponownie za chwilę.")
             if kod == 404:
                 return BladOllamy(f"Dostawca API nie zna modelu (czat: '{self.model_llm}', embeddingi: "
                                   f"'{self.model_embed}') – sprawdź MODEL_LLM i MODEL_EMBED. Szczegóły: {szczegoly}")
@@ -86,18 +102,34 @@ class KlientAPI:
 
     # ---------------------------------------------------------------- czat
     def czat_strumien(self, wiadomosci: list[dict], model: str | None = None) -> Iterator[str]:
-        model = model or self.model_llm
+        """Strumień odpowiedzi. Gdy model jest przeciążony albo wyczerpał limit, próbujemy modeli zapasowych –
+        zanim zacznie się strumień, więc użytkownik nie zobaczy pomieszanych odpowiedzi."""
+        glowny = model or self.model_llm
+        kolejka = [glowny] + [m for m in self.modele_zapasowe if m != glowny]
+        if model is None and self._dzialajacy and time.time() < self._dzialajacy[1]:
+            kolejka.remove(self._dzialajacy[0])
+            kolejka.insert(0, self._dzialajacy[0])  # nie czekamy co pytanie na przeciążony model główny
+        ostatni: BladOllamy | None = None
+        for nr, nazwa in enumerate(kolejka):
+            try:
+                yield from self._czat_jeden(wiadomosci, nazwa, proby=2 if nr < len(kolejka) - 1 else 3)
+                self._dzialajacy = (nazwa, time.time() + 600) if nazwa != glowny else None
+                return
+            except _ModelNiedostepny as e:
+                ostatni = e
+        raise BladOllamy(str(ostatni)) if ostatni else BladOllamy("Brak dostępnego modelu.")
+
+    def _czat_jeden(self, wiadomosci: list[dict], model: str, proby: int) -> Iterator[str]:
         dane = {"model": model, "messages": wiadomosci, "temperature": self.temperatura,
                 "max_tokens": self.maks_tokenow, "stream": True}
-        # Zapytanie z ponowieniem przy 429 – sam strumień czytamy dopiero po udanym połączeniu.
-        for proba in range(4):
+        for proba in range(proby):
             try:
                 with self._http.stream("POST", f"{self.host}/chat/completions", json=dane) as odp:
-                    if odp.status_code == 429 or odp.status_code >= 500:
+                    if odp.status_code in (404, 429) or odp.status_code >= 500:
                         odp.read()
-                        if proba == 3:
-                            raise self._blad(None, odp)
-                        time.sleep(1.5 * (proba + 1))
+                        if proba == proby - 1 or odp.status_code == 404:
+                            raise _ModelNiedostepny(str(self._blad(None, odp)))
+                        time.sleep(2.0 * (proba + 1))
                         continue
                     if odp.status_code >= 400:
                         odp.read()
@@ -118,7 +150,9 @@ class KlientAPI:
                             yield tekst
                     return
             except httpx.HTTPError as e:
-                raise self._blad(e) from e
+                if proba == proby - 1:
+                    raise _ModelNiedostepny(str(self._blad(e))) from e
+                time.sleep(2.0 * (proba + 1))
 
     def czat(self, wiadomosci: list[dict], model: str | None = None) -> str:
         return "".join(self.czat_strumien(wiadomosci, model))

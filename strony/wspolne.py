@@ -53,8 +53,10 @@ def przygotuj_indeks() -> None:
     with _BLOKADA_PRZYGOTOWANIA:
         if (config.KATALOG_INDEKSU / IndeksHybrydowy.PLIK_FRAGMENTOW).exists():
             return
-        st.info("Pierwsze uruchomienie: przygotowuję bazę wiedzy (ok. 1 minuta)...")
+        komunikat = st.empty()
+        komunikat.info("Pierwsze uruchomienie: przygotowuję bazę wiedzy...")
         przebuduj_indeks()
+        komunikat.empty()
 
 
 def przebuduj_indeks() -> int:

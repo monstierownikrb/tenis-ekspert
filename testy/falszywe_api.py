@@ -56,6 +56,9 @@ class Obsluga(BaseHTTPRequestHandler):
             wejscie = dane["input"] if isinstance(dane["input"], list) else [dane["input"]]
             self._json(200, {"data": [{"index": i, "embedding": osadz(t)} for i, t in enumerate(wejscie)]})
         elif self.path.endswith("/chat/completions"):
+            if dane.get("model") == "model-przeciazony":
+                self._json(503, {"error": {"code": 503, "message": "This model is currently experiencing high demand."}})
+                return
             tekst = odpowiedz_modelu(dane["messages"])
             self.send_response(200)
             self.send_header("Content-Type", "text/event-stream")

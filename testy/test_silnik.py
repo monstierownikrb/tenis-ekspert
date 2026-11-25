@@ -212,6 +212,12 @@ def test_klient_api_zgodny_z_openai():
         odp = klient.czat([{"role": "user", "content": "KONTEKST:\n[1] Zasady\nTie-break gra się do 7.\n\nPYTANIE: ?"}])
         assert "Tie-break" in odp
         assert klient.sprawdz() == []
+        # główny model przeciążony (503) -> odpowiada model zapasowy
+        zapas = KlientAPI(url, "klucz-testowy", "model-przeciazony,mistral-small-latest", "", modele_zapasowe=[])
+        assert "Tie-break" in zapas.czat([{"role": "user", "content": "KONTEKST:\n[1] Zasady\nTie-break gra się do 7.\n\nPYTANIE: ?"}])
+        tylko_zly = KlientAPI(url, "klucz-testowy", "model-przeciazony", "", modele_zapasowe=[])
+        with pytest.raises(BladOllamy, match="przeciążony"):
+            tylko_zly.czat([{"role": "user", "content": "test"}])
         zly = KlientAPI(url, "zly-klucz", "mistral-small-latest", "mistral-embed")
         assert "Klucz API" in zly.sprawdz()[0]
         with pytest.raises(BladOllamy, match="Klucz API"):
